@@ -1,2 +1,2 @@
-# earthquakes
-Vizualization of USGS earthquake data with MapBox and LeafletJS
+# earthquake-map
+Visualization of USGS earthquake data with MapBox and LeafletJS
