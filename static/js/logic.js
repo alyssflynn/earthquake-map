@@ -1,18 +1,6 @@
-// Create the tile layer that will be the background of our map
-// const mapbox_url = "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token={accessToken}";
-const mapbox_url = "https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v10/tiles/256/{z}/{x}/{y}?access_token={accessToken}";
-
-const attribution = "Map data &copy; <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"http://mapbox.com\">Mapbox</a>";
-
-// var lightmap = L.tileLayer(mapbox_url, {
-//   attribution: attribution,
-//   maxZoom: 18,
-//   id: "mapbox.light",
-//   accessToken: API_KEY
-// });
-
-var satellitemap = L.tileLayer(mapbox_url, {
-  attribution: attribution,
+// Create map tile layer
+var satellitemap = L.tileLayer("https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v10/tiles/256/{z}/{x}/{y}?access_token={accessToken}", {
+  attribution: "Map data &copy; <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"http://mapbox.com\">Mapbox</a>",
   maxZoom: 18,
   id: "mapbox.satellite",
   accessToken: API_KEY
@@ -24,6 +12,7 @@ var layers = {
   PAST_DAY: new L.LayerGroup(),
   PAST_WEEK: new L.LayerGroup(),
   PAST_MONTH: new L.LayerGroup(),
+  // plateLayer: new L.LayerGroup()
 };
 
 // Create the map with our layers
@@ -35,11 +24,11 @@ var map = L.map("map-id", {
     layers.PAST_DAY,
     layers.PAST_WEEK,
     layers.PAST_MONTH,
+    // layers.plateLayer
   ]
 });
 
-// Add our 'lightmap' tile layer to the map
-// lightmap.addTo(map);
+// Add our 'satellite map' tile layer to the map
 satellitemap.addTo(map);
 
 // Create an overlays object to add to the layer control
@@ -48,6 +37,7 @@ var overlays = {
   "Past Day": layers.PAST_DAY,
   "Past Week": layers.PAST_WEEK,
   "Past Month": layers.PAST_MONTH,
+  // "Tectonic Plates": layers.plateLayer
 };
 
 // Create a control for our layers, add our overlay layers to it
@@ -66,26 +56,35 @@ info.onAdd = function() {
 // Add the info legend to the map
 info.addTo(map);
 
-function fmtTimestamp(time) {
-  var dt = new Date(time);
-  return dt.toUTCString();
-};
+// --------------------------------------------------
+// ADD TECTONIC PLATE LINES TO MAP
+var plates_url = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json";
 
-function getColor(mag) {
-  if (mag < 1) { return "#ddf57e"; }
-  else if (mag < 2) { return "#fde63a"; }
-  else if (mag < 3) { return "#fcbc2c"; }
-  else if (mag < 4) { return "#fd9e28"; }
-  else if (mag < 5) { return "#fa7f23"; }
-  else { return "#fb0d1b"; }
-};
+var plateLayer = L.geoJSON(null, {
+  style: {
+    "weight": 1.5,
+    "opacity": 0.4
+  }
+}).addTo(map);
+
+d3.json(plates_url).then(function(response){
+  console.log(response);
+  var lines = [];
+  response.features.forEach(feature => {
+    var plateLine = feature.geometry;
+    plateLayer.addData(plateLine);
+  });
+});
+
+// --------------------------------------------------
+// ADD USGS EARTHQUAKE DATA TO MAP
 
 // API call to USGS earthquake data
 URLs = {
-  PAST_HOUR: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson",
-  PAST_DAY: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+  PAST_MONTH: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson",
   PAST_WEEK: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson", 
-  PAST_MONTH: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson"
+  PAST_DAY: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson",
+  PAST_HOUR: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson",
 };
 
 var earthquakeCount = {
@@ -103,10 +102,9 @@ var earthquakeUpdated = {
 };
 
 Object.entries(URLs).forEach(([key, url]) => {
-  console.log(key, url);
 
   d3.json(url).then(function (response){
-    console.log(response);
+
     // Update earthquake count
     earthquakeCount[key] = response.features.length;
     var generatedOn = fmtTimestamp(response.metadata.generated);
@@ -125,7 +123,6 @@ Object.entries(URLs).forEach(([key, url]) => {
             fillOpacity: 0.8
           });
         },
-        // onEachFeature: addEarthquakeInfo,
       });
 
       // Add popup with info
@@ -144,6 +141,21 @@ Object.entries(URLs).forEach(([key, url]) => {
   });
 });
 
+
+function fmtTimestamp(time) {
+  var dt = new Date(time);
+  return dt.toUTCString();
+};
+
+function getColor(mag) {
+  if (mag < 1) { return "#ddf57e"; }
+  else if (mag < 2) { return "#fde63a"; }
+  else if (mag < 3) { return "#fcbc2c"; }
+  else if (mag < 4) { return "#fd9e28"; }
+  else if (mag < 5) { return "#fa7f23"; }
+  else { return "#fb0d1b"; }
+};
+
 // Update the legend's innerHTML with the last updated time and station count
 function updateLegend(time, earthquakeCount) {
   document.querySelector(".legend").innerHTML = [
@@ -155,18 +167,8 @@ function updateLegend(time, earthquakeCount) {
   ].join("");
 }
 
-
-
-// function addEarthquakeInfo(feature, layer) {
-//   if (feature.properties && feature.properties.title) {
-//     layer.bindPopup(
-//       "<h3>" + feature.properties.title + "</h3><hr>" + 
-//       "<strong>Magnitude: </strong>" + feature.properties.mag + 
-//       "<br><strong>Time: </strong>" + fmtTimestamp(feature.properties.time) +
-//       "<br><strong>Significance: </strong>" + feature.properties.sig + "/1000" +
-//       "<br><strong>More info: </strong><a href=" + feature.properties.detail + ">USGS Earthquake Event Page</a>");
-//   }
-// };
+// ---------------------------------------------
+// Simpler version
 
 // // API call to USGS earthquake data
 // function getUrl(timespan) {
@@ -204,3 +206,14 @@ function updateLegend(time, earthquakeCount) {
 //     }).addTo(map);
 //   }
 // });
+
+// function addEarthquakeInfo(feature, layer) {
+//   if (feature.properties && feature.properties.title) {
+//     layer.bindPopup(
+//       "<h3>" + feature.properties.title + "</h3><hr>" + 
+//       "<strong>Magnitude: </strong>" + feature.properties.mag + 
+//       "<br><strong>Time: </strong>" + fmtTimestamp(feature.properties.time) +
+//       "<br><strong>Significance: </strong>" + feature.properties.sig + "/1000" +
+//       "<br><strong>More info: </strong><a href=" + feature.properties.detail + ">USGS Earthquake Event Page</a>");
+//   }
+// };
