@@ -17,7 +17,7 @@ var layers = {
 
 // Create the map with our layers
 var map = L.map("map-id", {
-  center: [40.73, -74.0059],
+  center: [20, 0],
   zoom: 2,
   layers: [
     layers.PAST_HOUR,
